@@ -1,0 +1,1 @@
+Compete "C:\Users\dell-pc\Documents\大学\大二下\人智导\AI_Project\AI_Project\AI_project_win\TestCases\38.dll" "C:\Users\dell-pc\Documents\大学\大二下\人智导\AI_Project\AI_Project\AI_project_win\Connect4\Release\Strategy.dll" result.txt 10
