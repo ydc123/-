@@ -28,9 +28,7 @@ struct msg
 	msg(ULL hash,int n,int w):hash(hash),n(n),w(w) {}
 };
 vector<msg> score[mod+10];
-int totalcnt;
 int MonteCarlo(int y,int M,int N,int *top,int** board,int user_id);
-int expand(int M,int N,int *top,int** board,int user_id);
 ULL encode(int M,int N,int **board)
 {
 	ULL sum=0;
@@ -39,8 +37,9 @@ ULL encode(int M,int N,int **board)
 			sum=sum*P+board[i][j]+1;
 	return sum;
 }
-int Find(ULL state,int x)
+int Find(ULL state)
 {
+	int x=state%mod;
 	for(int i=0;i<SZ(score[x]);++i)
 		if(score[x][i].hash==state)
 			return i;
@@ -48,11 +47,11 @@ int Find(ULL state,int x)
 }
 void update(ULL state,int val)
 {
-	int x=state%mod,i=Find(state,x);
+	int x=state%mod,i=Find(state);
 	if(i>=0)
 		++score[x][i].n,score[x][i].w+=val;
 	else
-		score[x].push_back(msg(state,1,val)),++totalcnt;
+		score[x].push_back(msg(state,1,val));
 }
 int randint(int l,int r)
 {
@@ -69,14 +68,14 @@ ULL trans(int y,int M,int N,int *top,int** board,int user_id,bool back=false)
 		top[y]=x+1,board[x][y]=0;
 	return ans;
 }
-int select(int M,int N,int *nowtop,int** board,int c,bool print=false)
+int select(int M,int N,int *nowtop,int** board,int cntFa,int user_id,int c=2,bool print=false)
 {
 	double maxv;
 	int y=-1;
 	for(int k=0;k<N;++k)
 		if(nowtop[k]>0)
 		{
-			ULL state=trans(k,M,N,nowtop,board,me,true);
+			ULL state=trans(k,M,N,nowtop,board,user_id,true);
 			pair<int,int> ans=make_pair(0,0);
 			int x=state%mod;
 			for(int i=0;i<SZ(score[x]);++i)
@@ -88,7 +87,7 @@ int select(int M,int N,int *nowtop,int** board,int c,bool print=false)
 			if(ans.first==0)
 				return k;
 			double val=1.0*ans.second/ans.first;
-			val+=c*sqrt(2*log(ans.first)/totalcnt);
+			val+=c*sqrt(2*log(cntFa)/ans.first);
 			if(y==-1||maxv<val)
 				y=k,maxv=val;
 			if(print)
@@ -101,7 +100,7 @@ int select(int M,int N,int *nowtop,int** board,int c,bool print=false)
 	return y;
 }
 
-int MonteCarlo(int y,int M,int N,int *top,int** board,int user_id)
+int MonteCarlo(int y,int M,int N,int *top,int** board,int user_id,bool isRandom)
 {
 	static int can[maxn];
 	int x=top[y]-1,val;
@@ -113,6 +112,7 @@ int MonteCarlo(int y,int M,int N,int *top,int** board,int user_id)
 	else
 	{
 		int n=0;
+		bool nextRandom=isRandom;
 		for(int i=0;i<N;++i)
 			if(top[i]>0)
 				can[++n]=i;
@@ -120,8 +120,19 @@ int MonteCarlo(int y,int M,int N,int *top,int** board,int user_id)
 			val=0;
 		else
 		{
-			int y=can[randint(1,n)];
-			val=-MonteCarlo(y,M,N,top,board,3-user_id);
+			int y,id=Find(state);
+			if(id==-1)
+				nextRandom=true;
+			if(nextRandom)
+				y=can[randint(1,n)];
+			else
+			{
+				int cntFa=score[state%mod][id].n+1;
+				y=select(M,N,top,board,cntFa,3-user_id);
+				if(Find(trans(y,M,N,top,board,3-user_id,true))==-1)
+					nextRandom=true;
+			}
+			val=-MonteCarlo(y,M,N,top,board,3-user_id,nextRandom);
 		}
 	}
 	top[y]=x+1,board[x][y]=0;
@@ -158,13 +169,21 @@ extern "C" __declspec(dllexport) Point* getPoint(const int M, const int N, const
 	bool used=false;
 	if(!used)
 		AllocConsole(),used=true;
+	int cntChess=0;
 	int x = -1, y = -1;//最终将你的落子点存到x,y中
 	int** board = new int*[M];
 	for(int i = 0; i < M; i++){
 		board[i] = new int[N];
 		for(int j = 0; j < N; j++){
 			board[i][j] = _board[i * N + j];
+			if(board[i][j]!=0)
+				++cntChess;
 		}
+	}
+	if(cntChess==0)
+	{
+		for(int i=0;i<mod;++i)
+			score[i].clear();
 	}
 	board[noX][noY]=3;
 	/*
@@ -186,13 +205,22 @@ extern "C" __declspec(dllexport) Point* getPoint(const int M, const int N, const
 	int nowtop[maxn];
 	for(int i=0;i<N;++i)
 		nowtop[i]=top[i];
-	for(int times=1;times<=60000;++times)
+	ULL state=encode(M,N,board);
+	int id=Find(state);
+	if(id==-1)
 	{
-		int y=select(M,N,nowtop,board,1);
-		MonteCarlo(y,M,N,nowtop,board,me);
+		update(state,0);
+		id=Find(state);
+	}
+	msg &Fa=score[state%mod][id];
+	int nTimes=20000;
+	for(int times=1;times<=nTimes;++times)
+	{
+		int y=select(M,N,nowtop,board,Fa.n+1,me);
+		update(state,-MonteCarlo(y,M,N,nowtop,board,me,0));
 	}
 	double maxv;
-	y=select(M,N,nowtop,board,0);
+	y=select(M,N,nowtop,board,Fa.n,me,0,true);
 	x=top[y]-1;
 	
 	/*
