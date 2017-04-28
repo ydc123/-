@@ -1,27 +1,11 @@
 0:
-2	987	16553
-2	1417	5164
-
-1:
-2	3315	3274
-2	1217	3301
-
-2:
-2	2537	1814
-2	1064	2847
-
-3:
-2	4045	4229
-2	1749	3500
-
-4:
-1	420	4540
-1	900	9012
+1	59079	3790
+1	60156	2266
 
 Stat:
-ratio of A wins : 0.2
-ratio of B wins : 0.8
+ratio of A wins : 1
+ratio of B wins : 0
 ratio of Tie : 0
 
-ratio of (A wins + tie) : 0.2
-ratio of (B wins + tie) : 0.8
+ratio of (A wins + tie) : 1
+ratio of (B wins + tie) : 0

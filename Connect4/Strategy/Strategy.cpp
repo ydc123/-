@@ -20,6 +20,7 @@ const int enemy=1;
 const int WIN=2;
 const int LOSE=1;
 const int UNKNOWN=3;
+
 struct msg
 {
 	ULL hash;
@@ -28,6 +29,7 @@ struct msg
 	msg(ULL hash,int n,int w):hash(hash),n(n),w(w) {}
 };
 vector<msg> score[mod+10];
+ULL Power[maxn*maxn];
 int MonteCarlo(int y,int M,int N,int *top,int** board,int user_id);
 ULL encode(int M,int N,int **board)
 {
@@ -45,6 +47,13 @@ int Find(ULL state)
 			return i;
 	return -1;
 }
+ULL Modify(int M,int N,ULL state,int x,int y,int **board,int v)
+{
+	state-=(board[x][y]+1)*Power[M*N-x*N-y-1];
+	board[x][y]=v;
+	state+=(board[x][y]+1)*Power[M*N-x*N-y-1];
+	return state;
+}
 void update(ULL state,int val)
 {
 	int x=state%mod,i=Find(state);
@@ -57,25 +66,25 @@ int randint(int l,int r)
 {
 	return rand()%(r-l+1)+l;
 }
-ULL trans(int y,int M,int N,int *top,int** board,int user_id,bool back=false)
+ULL trans(ULL nowstate,int y,int M,int N,int *top,int** board,int user_id,bool back=false)
 {
 	int x=top[y]-1;
-	board[x][y]=user_id,--top[y];
+	ULL ans=Modify(M,N,nowstate,x,y,board,user_id);
+	--top[y];
 	if(x>0&&board[x-1][y]==3)
 		--top[y];
-	ULL ans=encode(M,N,board);
 	if(back)
 		top[y]=x+1,board[x][y]=0;
 	return ans;
 }
-int select(int M,int N,int *nowtop,int** board,int cntFa,int user_id,int c=2,bool print=false)
+int select(ULL nowstate,int M,int N,int *nowtop,int** board,int cntFa,int user_id,int c=1,bool print=false)
 {
 	double maxv;
 	int y=-1;
 	for(int k=0;k<N;++k)
 		if(nowtop[k]>0)
 		{
-			ULL state=trans(k,M,N,nowtop,board,user_id,true);
+			ULL state=trans(nowstate,k,M,N,nowtop,board,user_id,true);
 			pair<int,int> ans=make_pair(0,0);
 			int x=state%mod;
 			for(int i=0;i<SZ(score[x]);++i)
@@ -90,21 +99,21 @@ int select(int M,int N,int *nowtop,int** board,int cntFa,int user_id,int c=2,boo
 			val+=c*sqrt(2*log(cntFa)/ans.first);
 			if(y==-1||maxv<val)
 				y=k,maxv=val;
-			if(print)
-				_cprintf("(%d,%d) ",ans.first,ans.second);
+			//if(print)
+			//	_cprintf("(%d,%d) ",ans.first,ans.second);
 		}
-		else if(print)
-			_cprintf("%.2f ",0);
-	if(print)
-		_cprintf("\n");
+	//	else if(print)
+	//		_cprintf("0 ");
+	//if(print)
+	//	_cprintf("\n");
 	return y;
 }
 
-int MonteCarlo(int y,int M,int N,int *top,int** board,int user_id,bool isRandom)
+int MonteCarlo(ULL laststate,int y,int M,int N,int *top,int** board,int user_id,bool isRandom)
 {
 	static int can[maxn];
 	int x=top[y]-1,val;
-	ULL state=trans(y,M,N,top,board,user_id);
+	ULL state=trans(laststate,y,M,N,top,board,user_id);
 	if(user_id==me&&machineWin(x,y,M,N,board))
 		val=1;
 	else if(user_id==enemy&&userWin(x,y,M,N,board))
@@ -128,11 +137,11 @@ int MonteCarlo(int y,int M,int N,int *top,int** board,int user_id,bool isRandom)
 			else
 			{
 				int cntFa=score[state%mod][id].n+1;
-				y=select(M,N,top,board,cntFa,3-user_id);
-				if(Find(trans(y,M,N,top,board,3-user_id,true))==-1)
+				y=select(state,M,N,top,board,cntFa,3-user_id);
+				if(Find(trans(state,y,M,N,top,board,3-user_id,true))==-1)
 					nextRandom=true;
 			}
-			val=-MonteCarlo(y,M,N,top,board,3-user_id,nextRandom);
+			val=-MonteCarlo(state,y,M,N,top,board,3-user_id,nextRandom);
 		}
 	}
 	top[y]=x+1,board[x][y]=0;
@@ -166,17 +175,20 @@ extern "C" __declspec(dllexport) Point* getPoint(const int M, const int N, const
 		不要更改这段代码
 	*/
 	
-	bool used=false;
-	if(!used)
-		AllocConsole(),used=true;
+	//bool used=false;
+	//if(!used)
+	//	AllocConsole(),used=true;
 	int cntChess=0;
 	int x = -1, y = -1;//最终将你的落子点存到x,y中
 	int** board = new int*[M];
+	Power[0]=1;
+	for(int i=1;i<=N*M;++i)
+		Power[i]=Power[i-1]*P;
 	for(int i = 0; i < M; i++){
 		board[i] = new int[N];
 		for(int j = 0; j < N; j++){
 			board[i][j] = _board[i * N + j];
-			if(board[i][j]!=0)
+			if(board[i][j]==2)
 				++cntChess;
 		}
 	}
@@ -213,14 +225,14 @@ extern "C" __declspec(dllexport) Point* getPoint(const int M, const int N, const
 		id=Find(state);
 	}
 	msg &Fa=score[state%mod][id];
-	int nTimes=20000;
+	int nTimes=100000;
 	for(int times=1;times<=nTimes;++times)
 	{
-		int y=select(M,N,nowtop,board,Fa.n+1,me);
-		update(state,-MonteCarlo(y,M,N,nowtop,board,me,0));
+		int y=select(state,M,N,nowtop,board,Fa.n+1,me);
+		update(state,-MonteCarlo(state,y,M,N,nowtop,board,me,0));
 	}
 	double maxv;
-	y=select(M,N,nowtop,board,Fa.n,me,0,true);
+	y=select(state,M,N,nowtop,board,Fa.n,me,0,true);
 	x=top[y]-1;
 	
 	/*
