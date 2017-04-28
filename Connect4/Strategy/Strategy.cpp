@@ -8,6 +8,7 @@
 #include "Judge.h"
 #include <map>
 #include <vector>
+#include <unordered_map>
 #define maxn 15
 #define P 131
 #define mod 1000007
@@ -27,6 +28,9 @@ struct msg
 	msg(ULL hash,int n,int w):hash(hash),n(n),w(w) {}
 };
 vector<msg> score[mod+10];
+int totalcnt;
+int MonteCarlo(int y,int M,int N,int *top,int** board,int user_id);
+int expand(int M,int N,int *top,int** board,int user_id);
 ULL encode(int M,int N,int **board)
 {
 	ULL sum=0;
@@ -35,17 +39,20 @@ ULL encode(int M,int N,int **board)
 			sum=sum*P+board[i][j]+1;
 	return sum;
 }
-void update(ULL state,int val)
+int Find(ULL state,int x)
 {
-	int x=state%mod;
 	for(int i=0;i<SZ(score[x]);++i)
 		if(score[x][i].hash==state)
-		{
-			++score[x][i].n;
-			score[x][i].w+=val;
-			return ;
-		}
-	score[x].push_back(msg(state,1,val));
+			return i;
+	return -1;
+}
+void update(ULL state,int val)
+{
+	int x=state%mod,i=Find(state,x);
+	if(i>0)
+		++score[x][i].n,score[x][i].w+=val;
+	else
+		score[x].push_back(msg(state,1,val)),++totalcnt;
 }
 int randint(int l,int r)
 {
@@ -76,24 +83,10 @@ int MonteCarlo(int y,int M,int N,int *top,int** board,int user_id)
 		int n=0;
 		for(int i=0;i<N;++i)
 			if(top[i]>0)
-			{
 				can[++n]=i;
-				int y=i,x=top[y]-1;
-				board[x][y]=3-user_id;
-				if(user_id==me&&userWin(x,y,M,N,board))
-					n=-1;
-				if(user_id==enemy&&machineWin(x,y,M,N,board))
-					n=-1;
-				board[x][y]=0;
-				if(n<0)
-				{
-					val=-MonteCarlo(y,M,N,top,board,3-user_id);
-					break;
-				}
-			}
 		if(n==0)
 			val=0;
-		else if(n!=-1)
+		else
 		{
 			int y=can[randint(1,n)];
 			val=-MonteCarlo(y,M,N,top,board,3-user_id);
@@ -166,13 +159,11 @@ extern "C" __declspec(dllexport) Point* getPoint(const int M, const int N, const
 		if(top[i]>0)
 			can[++n]=i;
 	}
-	//_cprintf("\n");
 	for(int times=1;times<=60000;++times)
 	{
 		int y=can[randint(1,n)];
 		MonteCarlo(y,M,N,nowtop,board,me);
 	}
-	//_cprintf("\n");
 	double maxv;
 	y=-1;
 	for(int k=0;k<N;++k)
