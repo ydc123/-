@@ -69,6 +69,38 @@ ULL trans(int y,int M,int N,int *top,int** board,int user_id,bool back=false)
 		top[y]=x+1,board[x][y]=0;
 	return ans;
 }
+int select(int M,int N,int *nowtop,int** board,int c,bool print=false)
+{
+	double maxv;
+	int y=-1;
+	for(int k=0;k<N;++k)
+		if(nowtop[k]>0)
+		{
+			ULL state=trans(k,M,N,nowtop,board,me,true);
+			pair<int,int> ans=make_pair(0,0);
+			int x=state%mod;
+			for(int i=0;i<SZ(score[x]);++i)
+				if(score[x][i].hash==state)
+				{
+					ans=make_pair(score[x][i].n,score[x][i].w);
+					break;
+				}
+			if(ans.first==0)
+				return k;
+			double val=1.0*ans.second/ans.first;
+			val+=c*sqrt(2*log(ans.first)/totalcnt);
+			if(y==-1||maxv<val)
+				y=k,maxv=val;
+			if(print)
+				_cprintf("(%d,%d) ",ans.first,ans.second);
+		}
+		else if(print)
+			_cprintf("%.2f ",0);
+	if(print)
+		_cprintf("\n");
+	return y;
+}
+
 int MonteCarlo(int y,int M,int N,int *top,int** board,int user_id)
 {
 	static int can[maxn];
@@ -151,41 +183,16 @@ extern "C" __declspec(dllexport) Point* getPoint(const int M, const int N, const
 		}
 	}*/
     
-	int can[maxn],n=0;
 	int nowtop[maxn];
 	for(int i=0;i<N;++i)
-	{
 		nowtop[i]=top[i];
-		if(top[i]>0)
-			can[++n]=i;
-	}
 	for(int times=1;times<=60000;++times)
 	{
-		int y=can[randint(1,n)];
+		int y=select(M,N,nowtop,board,1);
 		MonteCarlo(y,M,N,nowtop,board,me);
 	}
 	double maxv;
-	y=-1;
-	for(int k=0;k<N;++k)
-		if(top[k]>0)
-		{
-			ULL state=trans(k,M,N,nowtop,board,me,true);
-			pair<int,int> ans=make_pair(0,0);
-			int x=state%mod;
-			for(int i=0;i<SZ(score[x]);++i)
-				if(score[x][i].hash==state)
-				{
-					ans=make_pair(score[x][i].n,score[x][i].w);
-					break;
-				}
-			double val=1.0*(ans.second+1)/(ans.first+1);
-			if(y==-1||maxv<val)
-				y=k,maxv=val;
-			_cprintf("(%d,%d) ",ans.first,ans.second);
-		}
-		else
-			_cprintf("%.2f ",0);
-	_cprintf("\n");
+	y=select(M,N,nowtop,board,0);
 	x=top[y]-1;
 	
 	/*
