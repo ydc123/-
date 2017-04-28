@@ -49,7 +49,7 @@ int Find(ULL state,int x)
 void update(ULL state,int val)
 {
 	int x=state%mod,i=Find(state,x);
-	if(i>0)
+	if(i>=0)
 		++score[x][i].n,score[x][i].w+=val;
 	else
 		score[x].push_back(msg(state,1,val)),++totalcnt;
@@ -75,9 +75,9 @@ int MonteCarlo(int y,int M,int N,int *top,int** board,int user_id)
 	int x=top[y]-1,val;
 	ULL state=trans(y,M,N,top,board,user_id);
 	if(user_id==me&&machineWin(x,y,M,N,board))
-		val=3;
+		val=1;
 	else if(user_id==enemy&&userWin(x,y,M,N,board))
-		val=3;
+		val=1;
 	else
 	{
 		int n=0;
@@ -94,7 +94,7 @@ int MonteCarlo(int y,int M,int N,int *top,int** board,int user_id)
 	}
 	top[y]=x+1,board[x][y]=0;
 	update(state,val);
-	return val>0?1:-1;
+	return val;
 }
 /*
 	策略函数接口,该函数被对抗平台调用,每次传入当前状态,要求输出你的落子点,该落子点必须是一个符合游戏规则的落子点,不然对抗平台会直接认为你的程序有误
