@@ -1,3 +1,4 @@
 *.exe
 *.dll
-Connect4/Connect4.opensdf
+*.opensdf
+*.sdf
