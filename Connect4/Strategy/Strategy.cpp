@@ -9,6 +9,7 @@
 #include <map>
 #include <vector>
 #include <unordered_map>
+#include <ctime>
 #define maxn 15
 #define P 131
 #define mod 1000007
@@ -25,6 +26,7 @@ struct msg
 {
 	ULL hash;
 	int n,w;
+	int type;
 	msg() {}
 	msg(ULL hash,int n,int w):hash(hash),n(n),w(w) {}
 };
@@ -79,8 +81,9 @@ ULL trans(ULL nowstate,int y,int M,int N,int *top,int** board,int user_id,bool b
 }
 int select(ULL nowstate,int M,int N,int *nowtop,int** board,int cntFa,int user_id,int c=1,bool print=false)
 {
+	const int LEAST=2;
 	double maxv;
-	int y=-1;
+	int y=-1,y2=-2,y3=-3;
 	for(int k=0;k<N;++k)
 		if(nowtop[k]>0)
 		{
@@ -93,19 +96,19 @@ int select(ULL nowstate,int M,int N,int *nowtop,int** board,int cntFa,int user_i
 					ans=make_pair(score[x][i].n,score[x][i].w);
 					break;
 				}
-			if(ans.first==0)
+			if(ans.first<=LEAST)
 				return k;
 			double val=1.0*ans.second/ans.first;
 			val+=c*sqrt(2*log(cntFa)/ans.first);
 			if(y==-1||maxv<val)
 				y=k,maxv=val;
-			//if(print)
-			//	_cprintf("(%d,%d) ",ans.first,ans.second);
+			if(print)
+				_cprintf("(%d,%d) ",ans.first,ans.second);
 		}
-	//	else if(print)
-	//		_cprintf("0 ");
-	//if(print)
-	//	_cprintf("\n");
+		else if(print)
+			_cprintf("0 ");
+	if(print)
+		_cprintf("\n");
 	return y;
 }
 
@@ -115,9 +118,9 @@ int MonteCarlo(ULL laststate,int y,int M,int N,int *top,int** board,int user_id,
 	int x=top[y]-1,val;
 	ULL state=trans(laststate,y,M,N,top,board,user_id);
 	if(user_id==me&&machineWin(x,y,M,N,board))
-		val=1;
+		val=2;
 	else if(user_id==enemy&&userWin(x,y,M,N,board))
-		val=1;
+		val=2;
 	else
 	{
 		int n=0;
@@ -174,10 +177,10 @@ extern "C" __declspec(dllexport) Point* getPoint(const int M, const int N, const
 	/*
 		不要更改这段代码
 	*/
-	
-	//bool used=false;
-	//if(!used)
-	//	AllocConsole(),used=true;
+	bool used=false;
+	if(!used)
+		AllocConsole(),used=true;
+	double be=(double)clock()/CLOCKS_PER_SEC;
 	int cntChess=0;
 	int x = -1, y = -1;//最终将你的落子点存到x,y中
 	int** board = new int*[M];
@@ -225,11 +228,15 @@ extern "C" __declspec(dllexport) Point* getPoint(const int M, const int N, const
 		id=Find(state);
 	}
 	msg &Fa=score[state%mod][id];
-	int nTimes=100000;
-	for(int times=1;times<=nTimes;++times)
+	int nTimes=80000;
+	//for(int times=1;times<=nTimes;++times)
+	while(1)
 	{
 		int y=select(state,M,N,nowtop,board,Fa.n+1,me);
 		update(state,-MonteCarlo(state,y,M,N,nowtop,board,me,0));
+		double en=(double)clock()/CLOCKS_PER_SEC;
+		if(en-be>2.8)
+			break;
 	}
 	double maxv;
 	y=select(state,M,N,nowtop,board,Fa.n,me,0,true);
@@ -239,6 +246,8 @@ extern "C" __declspec(dllexport) Point* getPoint(const int M, const int N, const
 		不要更改这段代码
 	*/
 	clearArray(M, N, board);
+	double en=(double)clock()/CLOCKS_PER_SEC;
+	_cprintf("%f\n",en-be);
 	return new Point(x, y);
 }
 
