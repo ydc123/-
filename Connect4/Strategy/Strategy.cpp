@@ -12,7 +12,7 @@
 #include <ctime>
 #define maxn 15
 #define P 131
-#define mod 1000007
+#define mod 4194303
 #define SZ(x) ((int)(x).size())
 using namespace std;
 typedef unsigned long long ULL;
@@ -26,7 +26,6 @@ struct msg
 {
 	ULL hash;
 	int n,w;
-	int type;
 	msg() {}
 	msg(ULL hash,int n,int w):hash(hash),n(n),w(w) {}
 };
@@ -43,7 +42,7 @@ ULL encode(int M,int N,int **board)
 }
 int Find(ULL state)
 {
-	int x=state%mod;
+	int x=state&mod;
 	for(int i=0;i<SZ(score[x]);++i)
 		if(score[x][i].hash==state)
 			return i;
@@ -58,7 +57,7 @@ ULL Modify(int M,int N,ULL state,int x,int y,int **board,int v)
 }
 void update(ULL state,int val)
 {
-	int x=state%mod,i=Find(state);
+	int x=state&mod,i=Find(state);
 	if(i>=0)
 		++score[x][i].n,score[x][i].w+=val;
 	else
@@ -79,17 +78,17 @@ ULL trans(ULL nowstate,int y,int M,int N,int *top,int** board,int user_id,bool b
 		top[y]=x+1,board[x][y]=0;
 	return ans;
 }
-int select(ULL nowstate,int M,int N,int *nowtop,int** board,int cntFa,int user_id,int c=1,bool print=false)
+int select(ULL nowstate,int M,int N,int *nowtop,int** board,int cntFa,int user_id,bool c=true,bool print=false)
 {
 	const int LEAST=2;
 	double maxv;
-	int y=-1,y2=-2,y3=-3;
+	int y=-1;
 	for(int k=0;k<N;++k)
 		if(nowtop[k]>0)
 		{
-			ULL state=trans(nowstate,k,M,N,nowtop,board,user_id,true);
+			ULL state=nowstate+Power[M*N-1-N*(nowtop[k]-1)-k]*user_id;
 			pair<int,int> ans=make_pair(0,0);
-			int x=state%mod;
+			int x=state&mod;
 			for(int i=0;i<SZ(score[x]);++i)
 				if(score[x][i].hash==state)
 				{
@@ -99,7 +98,8 @@ int select(ULL nowstate,int M,int N,int *nowtop,int** board,int cntFa,int user_i
 			if(ans.first<=LEAST)
 				return k;
 			double val=1.0*ans.second/ans.first;
-			val+=c*sqrt(2*log(cntFa)/ans.first);
+			if(c)
+				val+=2*sqrt(log(cntFa)/ans.first);
 			if(y==-1||maxv<val)
 				y=k,maxv=val;
 			if(print)
@@ -116,7 +116,11 @@ int MonteCarlo(ULL laststate,int y,int M,int N,int *top,int** board,int user_id,
 {
 	static int can[maxn];
 	int x=top[y]-1,val;
-	ULL state=trans(laststate,y,M,N,top,board,user_id);
+	ULL state=laststate+Power[M*N-1-y-x*N]*user_id;
+	board[x][y]=user_id;
+	--top[y];
+	if(x>0&&board[x-1][y]==3)
+		--top[y];
 	if(user_id==me&&machineWin(x,y,M,N,board))
 		val=2;
 	else if(user_id==enemy&&userWin(x,y,M,N,board))
@@ -139,9 +143,9 @@ int MonteCarlo(ULL laststate,int y,int M,int N,int *top,int** board,int user_id,
 				y=can[randint(1,n)];
 			else
 			{
-				int cntFa=score[state%mod][id].n+1;
+				int cntFa=score[state&mod][id].n+1;
 				y=select(state,M,N,top,board,cntFa,3-user_id);
-				if(Find(trans(state,y,M,N,top,board,3-user_id,true))==-1)
+				if(Find(state+Power[M*N-(top[y]-1)*N-y-1]*(3-user_id))==-1)
 					nextRandom=true;
 			}
 			val=-MonteCarlo(state,y,M,N,top,board,3-user_id,nextRandom);
@@ -195,11 +199,6 @@ extern "C" __declspec(dllexport) Point* getPoint(const int M, const int N, const
 				++cntChess;
 		}
 	}
-	if(cntChess==0)
-	{
-		for(int i=0;i<mod;++i)
-			score[i].clear();
-	}
 	board[noX][noY]=3;
 	/*
 		根据你自己的策略来返回落子点,也就是根据你的策略完成对x,y的赋值
@@ -227,19 +226,18 @@ extern "C" __declspec(dllexport) Point* getPoint(const int M, const int N, const
 		update(state,0);
 		id=Find(state);
 	}
-	msg &Fa=score[state%mod][id];
-	int nTimes=80000;
+	msg &Fa=score[state&mod][id];
+	int nTimes=80000,lasty=-1;
 	//for(int times=1;times<=nTimes;++times)
 	while(1)
 	{
 		int y=select(state,M,N,nowtop,board,Fa.n+1,me);
 		update(state,-MonteCarlo(state,y,M,N,nowtop,board,me,0));
 		double en=(double)clock()/CLOCKS_PER_SEC;
-		if(en-be>2.8)
+		if(en-be>2.9)
 			break;
 	}
-	double maxv;
-	y=select(state,M,N,nowtop,board,Fa.n,me,0,true);
+	y=select(state,M,N,nowtop,board,Fa.n,me,false,true);
 	x=top[y]-1;
 	
 	/*
@@ -265,6 +263,8 @@ extern "C" __declspec(dllexport) void clearPoint(Point* p){
 	清除top和board数组
 */
 void clearArray(int M, int N, int** board){
+	for(int i=0;i<=mod;++i)
+		score[i].clear();
 	for(int i = 0; i < M; i++){
 		delete[] board[i];
 	}
