@@ -10,7 +10,8 @@
 #include <vector>
 #include <unordered_map>
 #include <ctime>
-#define maxn 15
+#define maxn 12
+#define maxm 8000000
 #define P 131
 #define mod 4194303
 #define SZ(x) ((int)(x).size())
@@ -21,15 +22,12 @@ const int enemy=1;
 const int WIN=2;
 const int LOSE=1;
 const int UNKNOWN=3;
-
-struct msg
+struct Tree_Node
 {
-	ULL hash;
+	Tree_Node *son[maxn];
 	int n,w;
-	msg() {}
-	msg(ULL hash,int n,int w):hash(hash),n(n),w(w) {}
-};
-vector<msg> score[mod+10];
+}Tree[maxm];
+int nTree;
 ULL Power[maxn*maxn];
 int MonteCarlo(int y,int M,int N,int *top,int** board,int user_id);
 ULL encode(int M,int N,int **board)
@@ -40,66 +38,24 @@ ULL encode(int M,int N,int **board)
 			sum=sum*P+board[i][j]+1;
 	return sum;
 }
-int Find(ULL state)
-{
-	int x=state&mod;
-	for(int i=0;i<SZ(score[x]);++i)
-		if(score[x][i].hash==state)
-			return i;
-	return -1;
-}
-ULL Modify(int M,int N,ULL state,int x,int y,int **board,int v)
-{
-	state-=(board[x][y]+1)*Power[M*N-x*N-y-1];
-	board[x][y]=v;
-	state+=(board[x][y]+1)*Power[M*N-x*N-y-1];
-	return state;
-}
-void update(ULL state,int val)
-{
-	int x=state&mod,i=Find(state);
-	if(i>=0)
-		++score[x][i].n,score[x][i].w+=val;
-	else
-		score[x].push_back(msg(state,1,val));
-}
 int randint(int l,int r)
 {
 	return rand()%(r-l+1)+l;
 }
-ULL trans(ULL nowstate,int y,int M,int N,int *top,int** board,int user_id,bool back=false)
-{
-	int x=top[y]-1;
-	ULL ans=Modify(M,N,nowstate,x,y,board,user_id);
-	--top[y];
-	if(x>0&&board[x-1][y]==3)
-		--top[y];
-	if(back)
-		top[y]=x+1,board[x][y]=0;
-	return ans;
-}
-int select(ULL nowstate,int M,int N,int *nowtop,int** board,int cntFa,int user_id,bool c=true,bool print=false)
+int select(Tree_Node *rt,int M,int N,int *nowtop,int** board,int user_id,bool c=true,bool print=false)
 {
 	const int LEAST=2;
-	double maxv;
+	double maxv,logn=log(rt->n+1);
 	int y=-1;
 	for(int k=0;k<N;++k)
 		if(nowtop[k]>0)
 		{
-			ULL state=nowstate+Power[M*N-1-N*(nowtop[k]-1)-k]*user_id;
-			pair<int,int> ans=make_pair(0,0);
-			int x=state&mod;
-			for(int i=0;i<SZ(score[x]);++i)
-				if(score[x][i].hash==state)
-				{
-					ans=make_pair(score[x][i].n,score[x][i].w);
-					break;
-				}
+			pair<int,int> ans=rt->son[k]?make_pair(rt->son[k]->n,rt->son[k]->w):make_pair(0,0);
 			if(ans.first<=LEAST)
 				return k;
 			double val=1.0*ans.second/ans.first;
 			if(c)
-				val+=2*sqrt(log(cntFa)/ans.first);
+				val+=2*sqrt(logn/ans.first);
 			if(y==-1||maxv<val)
 				y=k,maxv=val;
 			if(print)
@@ -111,12 +67,18 @@ int select(ULL nowstate,int M,int N,int *nowtop,int** board,int cntFa,int user_i
 		_cprintf("\n");
 	return y;
 }
-
-int MonteCarlo(ULL laststate,int y,int M,int N,int *top,int** board,int user_id,bool isRandom)
+Tree_Node* NewNode()
+{
+	Tree_Node *p=&Tree[++nTree];
+	for(int i=0;i<maxn;++i)
+		p->son[i]=0;
+	p->n=p->w=0;
+	return p;
+}
+int MonteCarlo(Tree_Node *rt,int y,int M,int N,int *top,int** board,int user_id,bool isRandom)
 {
 	static int can[maxn];
 	int x=top[y]-1,val;
-	ULL state=laststate+Power[M*N-1-y-x*N]*user_id;
 	board[x][y]=user_id;
 	--top[y];
 	if(x>0&&board[x-1][y]==3)
@@ -136,23 +98,18 @@ int MonteCarlo(ULL laststate,int y,int M,int N,int *top,int** board,int user_id,
 			val=0;
 		else
 		{
-			int y,id=Find(state);
-			if(id==-1)
-				nextRandom=true;
-			if(nextRandom)
-				y=can[randint(1,n)];
+			int y;
+			if(isRandom||rt->n==0)
+				y=can[randint(1,n)],nextRandom=true;
 			else
-			{
-				int cntFa=score[state&mod][id].n+1;
-				y=select(state,M,N,top,board,cntFa,3-user_id);
-				if(Find(state+Power[M*N-(top[y]-1)*N-y-1]*(3-user_id))==-1)
-					nextRandom=true;
-			}
-			val=-MonteCarlo(state,y,M,N,top,board,3-user_id,nextRandom);
+				y=select(rt,M,N,top,board,3-user_id);
+			if(rt->son[y]==0)
+				rt->son[y]=NewNode(),nextRandom=true;
+			val=-MonteCarlo(rt->son[y],y,M,N,top,board,3-user_id,nextRandom);
 		}
 	}
 	top[y]=x+1,board[x][y]=0;
-	update(state,val);
+	++rt->n,rt->w+=val;
 	return val;
 }
 /*
@@ -219,25 +176,23 @@ extern "C" __declspec(dllexport) Point* getPoint(const int M, const int N, const
 	int nowtop[maxn];
 	for(int i=0;i<N;++i)
 		nowtop[i]=top[i];
-	ULL state=encode(M,N,board);
-	int id=Find(state);
-	if(id==-1)
-	{
-		update(state,0);
-		id=Find(state);
-	}
-	msg &Fa=score[state&mod][id];
-	int nTimes=80000,lasty=-1;
+	Tree_Node *rt=NewNode();
+	++rt->n;
+	int nTimes=80000,lasty=-1,times=0;
 	//for(int times=1;times<=nTimes;++times)
 	while(1)
 	{
-		int y=select(state,M,N,nowtop,board,Fa.n+1,me);
-		update(state,-MonteCarlo(state,y,M,N,nowtop,board,me,0));
+		int y=select(rt,M,N,nowtop,board,me);
+		//_cprintf("%d ",y);
+		if(rt->son[y]==0)
+			rt->son[y]=NewNode();
+		++rt->n,rt->w-=MonteCarlo(rt->son[y],y,M,N,nowtop,board,me,0),++times;
 		double en=(double)clock()/CLOCKS_PER_SEC;
-		if(en-be>2.9)
+		if(en-be>2.9||nTree>7999800)
 			break;
 	}
-	y=select(state,M,N,nowtop,board,Fa.n,me,false,true);
+	_cprintf("%d\n",times);
+	y=select(rt,M,N,nowtop,board,me,false,true);
 	x=top[y]-1;
 	
 	/*
@@ -263,8 +218,8 @@ extern "C" __declspec(dllexport) void clearPoint(Point* p){
 	清除top和board数组
 */
 void clearArray(int M, int N, int** board){
-	for(int i=0;i<=mod;++i)
-		score[i].clear();
+	_cprintf("%d\n",nTree);
+	nTree=0;
 	for(int i = 0; i < M; i++){
 		delete[] board[i];
 	}
